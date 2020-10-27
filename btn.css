@@ -1,0 +1,13 @@
+.leaflet-bar a {
+    background-color: #fff;
+    border-bottom: 1px solid #ccc;
+    border-bottom-color: rgb(204, 204, 204); 
+    color: #444;
+    display: block;
+    height: 26px;
+    width: 26px;
+    line-height: 1.45 !important;
+    text-align: center;
+    text-decoration: none;
+    font: bold 18px'Lucida Console', Monaco, monospace;
+}

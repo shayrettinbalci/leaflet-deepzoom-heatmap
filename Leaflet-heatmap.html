@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Leaflet DeepZoom Demo</title>
+    <link rel="stylesheet" href="leaflet.css" />
+    <link rel="stylesheet" type="text/css" href="btn.css">
+    <!-- Zoom Control icons -->
+    <link href="http://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet">
+    <style type="text/css">
+    html, body, #image2d {
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        margin: 0;
+    }
+</style>
+</head>
+
+<body>
+    <div id="image2d"></div>
+    <script type="text/javascript" src="leaflet.js"></script>
+    <script type="text/javascript" src="leaflet-deepzoom.js"></script>  
+    <script src="heatmap.js"></script>
+    <script src="leaflet-heatmap.js"></script>
+    <script type="text/javascript">
+        // Get image resolations
+        var img = new Image();
+        this.img.src = '2560x1600.jpg';
+
+        var height = this.img.height;
+        var width = this.img.width;
+        // Get canvas resolations
+        var divWidth = document.getElementById("image2d").clientWidth;
+        var divHeight = document.getElementById("image2d").clientHeight;
+        // Decide minimum zoom range
+        minZoom = 10;
+        if(divWidth <= width && divHeight <= height)
+            minZoom--;
+        else
+            minZoom = 10;
+        // Heatmap settings 
+        var cfg = {
+            // radius should be small ONLY if scaleRadius is true (or small radius is intended)
+            "max": 8,
+            "radius": .06,
+            "maxOpacity": .8,
+            "minOpacity": 0,
+            // scales the radius based on map zoom
+            "scaleRadius": true, 
+            // if set to false the heatmap uses the global maximum for colorization
+            // if activated: uses the data maximum within the current map boundaries 
+            //   (there will always be a red spot with useLocalExtremas true)
+            "blur": .75,
+            gradient: {
+            // enter n keys between 0 and 1 here
+            // for gradient color customization
+                '.2': 'rgb(42, 68, 254)',
+                '.4': 'green',
+                '.75': 'yellow',
+                '1': 'rgb(237, 39, 31)'
+                },
+            // "useLocalExtrema": true,
+            // which field name in your data represents the latitude - default "lat"
+            latField: 'lat',
+            // which field name in your data represents the longitude - default "lng"
+            lngField: 'lng',
+            // which field name in your data represents the data value - default "value"
+            valueField: 'count',
+        };
+
+        var heatmapLayer = new HeatmapOverlay(cfg);
+
+        // Create leaflet map
+        var map = L.map('image2d', {
+            layers: [heatmapLayer],   
+            crs: L.CRS.Simple,
+            zoomControl: false,
+        });
+        // Add image folder with Deepzoom
+        var dzLayer = L.tileLayer.deepzoom('images/2560x1600.jpg/', {
+            crs: L.CRS.Simple,
+            width: width,
+            height: height,
+            minZoom: minZoom
+        }).addTo(map);
+
+        var nativeZoom = dzLayer.options.maxNativeZoom;
+        // Get and set heatmap points
+        var points = [];
+        var len = null;
+
+        function getPoint() {           
+            var x = Math.floor(Math.random()*width);
+            var y = Math.floor(Math.random()*height);
+            var val = 1;
+
+            var dataObj = map.unproject([x,y], nativeZoom);
+            var coords = L.latLng(dataObj);
+            var lat = coords.lat;
+            var lng = coords.lng;
+            var point = {
+                lat: lat,
+                lng: lng,
+                count: val};
+            return point;
+        }
+
+        function setPoint(){
+            len = 30;
+            points = [];
+            while(len--){
+                points.push(getPoint());
+            }
+            var testData = {
+                max: 2,
+                data: points
+            }
+            heatmapLayer.setData(testData);
+
+      }
+
+        setPoint();
+        setInterval(setPoint, 5000);
+
+        // Zoom Control 
+        getMiddleH = Math.floor(height/2);
+        getMiddleV = Math.floor(width/2);
+        var midObj = map.unproject([getMiddleH,getMiddleV], nativeZoom);
+        var midcoords = L.latLng(midObj);
+        var lat = midcoords.lat;
+        var lng = midcoords.lng;
+        var zoom = 10;
+
+            L.Control.zoomHome = L.Control.extend({
+        options: {
+            position: 'topright',
+            zoomInText: '+',
+            zoomInTitle: 'Zoom in',
+            zoomOutText: '-',
+            zoomOutTitle: 'Zoom out',
+            zoomHomeText: '<i class="fa fa-home" style="line-height:1.65;"></i>',
+            zoomHomeTitle: 'Zoom home'
+        },
+
+        onAdd: function (map) {
+            var controlName = 'gin-control-zoom',
+            container = L.DomUtil.create('div', controlName + ' leaflet-bar'),
+            options = this.options;
+
+            this._zoomInButton = this._createButton(options.zoomInText, options.zoomInTitle,
+                controlName + '-in', container, this._zoomIn);
+            this._zoomHomeButton = this._createButton(options.zoomHomeText, options.zoomHomeTitle,
+                controlName + '-home', container, this._zoomHome);
+            this._zoomOutButton = this._createButton(options.zoomOutText, options.zoomOutTitle,
+                controlName + '-out', container, this._zoomOut);
+
+            this._updateDisabled();
+            map.on('zoomend zoomlevelschange', this._updateDisabled, this);
+
+            return container;
+        },
+
+        onRemove: function (map) {
+            map.off('zoomend zoomlevelschange', this._updateDisabled, this);
+        },
+
+        _zoomIn: function (e) {
+            this._map.zoomIn(e.shiftKey ? 3 : 1);
+        },
+
+        _zoomOut: function (e) {
+            this._map.zoomOut(e.shiftKey ? 3 : 1);
+        },
+
+        _zoomHome: function (e) {
+            map.setView([lat, lng], zoom);
+        },
+
+        _createButton: function (html, title, className, container, fn) {
+            var link = L.DomUtil.create('a', className, container);
+            link.innerHTML = html;
+            link.href = '#';
+            link.title = title;
+
+            L.DomEvent.on(link, 'mousedown dblclick', L.DomEvent.stopPropagation)
+            .on(link, 'click', L.DomEvent.stop)
+            .on(link, 'click', fn, this)
+            .on(link, 'click', this._refocusOnMap, this);
+
+            return link;
+        },
+
+        _updateDisabled: function () {
+            var map = this._map,
+            className = 'leaflet-disabled';
+
+            L.DomUtil.removeClass(this._zoomInButton, className);
+            L.DomUtil.removeClass(this._zoomOutButton, className);
+
+            if (map._zoom === map.getMinZoom()) {
+                L.DomUtil.addClass(this._zoomOutButton, className);
+            }
+            if (map._zoom === map.getMaxZoom()) {
+                L.DomUtil.addClass(this._zoomInButton, className);
+            }
+        }
+    });
+		// Restrict to bounds
+		map.setMaxBounds(dzLayer.options.bounds);
+        map.on('drag', function() {
+            map.panInsideBounds(dzLayer.options.bounds, { animate: false });
+        });
+
+		// Fit bounds
+		map.fitBounds(dzLayer.options.bounds);
+
+        // Add ZoomControl
+        var zoomHome = new L.Control.zoomHome();
+        zoomHome.addTo(map);
+    </script>
+</body>
+</html>
